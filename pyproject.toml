@@ -15,6 +15,7 @@ pytest = "^8.3.3"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
 pytest-cov = "^5.0.0"
+pytest-mock = "^3.14.0"
 
 [build-system]
 requires = ["poetry-core"]

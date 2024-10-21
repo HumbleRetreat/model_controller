@@ -1,13 +1,12 @@
-from typing import List, Optional, Type, TypeVar, Union, Collection
+from collections.abc import Collection
+from typing import List, Optional, Type, Union
 
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from model_controller.enums import OperationType
 from model_controller.exception import ControllerException
-
-ORMModel = TypeVar("ORMModel")
-CreateSchemaType = TypeVar("CreateSchemaType", bound=BaseModel)
-UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
+from model_controller.processor import ProcessorBase
+from model_controller.types import ORMModel, CreateSchemaType, UpdateSchemaType
 
 
 class ModelController:
@@ -62,12 +61,13 @@ class ModelController:
 
         raise ControllerException(f"Cannot resolve the actual model for {self._name}")
 
-    def register_processor(self, processor):
+    def register_processor(self, processor: ProcessorBase):
         self._processors.append(processor)
 
-    def notify_processors(self, model: Type[ORMModel], data: Union[CreateSchemaType, UpdateSchemaType] = None):
+    def notify_processors(self, operation: OperationType, model: Type[ORMModel],
+                          data: Union[CreateSchemaType, UpdateSchemaType] = None):
         for processor in self._processors:
-            processor.process(model, data)
+            processor.process(operation, model, data)
 
     def get_one(self, db: Session, *args, **kwargs) -> Optional[ORMModel]:
         """
@@ -133,7 +133,7 @@ class ModelController:
         db.add(db_obj)
         db.flush()
 
-        self.notify_processors(model_class, obj_create)
+        self.notify_processors(OperationType.CREATE, model_class, obj_create)
 
         return db_obj
 
@@ -165,6 +165,8 @@ class ModelController:
         db.add(db_obj)
         db.flush()
 
+        self.notify_processors(OperationType.UPDATE, type(db_obj), obj_update)
+
         return db_obj
 
     def delete(self, db: Session, db_obj: ORMModel) -> bool:
@@ -181,4 +183,7 @@ class ModelController:
         """
         db.delete(db_obj)
         db.flush()
+
+        self.notify_processors(OperationType.DELETE, type(db_obj), db_obj)
+
         return True

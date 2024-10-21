@@ -6,7 +6,6 @@ from tests.schemas import BaseModelCreateSchema
 def test_get_many(db):
     obj_count = 10
     controller = ModelController(ModelToTest)
-    data = BaseModelCreateSchema(name="test")
 
     for i in range(obj_count):
         controller.create(db, BaseModelCreateSchema(name=f"test_{i}"))
@@ -19,7 +18,6 @@ def test_get_many(db):
 def test_get_many_filter_args(db):
     obj_count = 10
     controller = ModelController(ModelToTest)
-    data = BaseModelCreateSchema(name="test")
 
     for i in range(obj_count):
         controller.create(db, BaseModelCreateSchema(name=f"test_{i}"))
@@ -32,7 +30,6 @@ def test_get_many_filter_args(db):
 def test_get_many_limit(db):
     obj_count = 10
     controller = ModelController(ModelToTest)
-    data = BaseModelCreateSchema(name="test")
 
     for i in range(obj_count):
         controller.create(db, BaseModelCreateSchema(name=f"test_{i}"))
