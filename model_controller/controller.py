@@ -21,7 +21,7 @@ class ModelController:
         self._model = model
         self._name = model.__name__
         self._polymorph_on = self._get_polymorph_on()
-        self._processors = []
+        self._processors: list[ProcessorBase] = []
 
     def _get_polymorph_on(self) -> str | None:
         """
@@ -65,7 +65,7 @@ class ModelController:
         self._processors.append(processor)
 
     def notify_processors(self, operation: OperationType, model: Type[ORMModel],
-                          data: Union[CreateSchemaType, UpdateSchemaType] = None):
+                          data: Union[CreateSchemaType, UpdateSchemaType]):
         for processor in self._processors:
             processor.process(operation, model, data)
 
