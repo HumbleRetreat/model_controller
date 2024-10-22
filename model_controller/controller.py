@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from model_controller.enums import OperationType
 from model_controller.exception import ControllerException
+from model_controller.filters import FiltersBase
 from model_controller.processor import ProcessorBase
 from model_controller.types import ORMModel, CreateSchemaType, UpdateSchemaType
 
@@ -12,16 +13,25 @@ from model_controller.types import ORMModel, CreateSchemaType, UpdateSchemaType
 class ModelController:
     """Base interface for CRUD operations."""
 
-    def __init__(self, model: Type[ORMModel]) -> None:
+    def __init__(self, model: Type[ORMModel], pagination: bool = False) -> None:
         """Initialize the CRUD repository.
 
         Parameters:
             model (Type[ORMModel]): The ORM model to use for CRUD operations.
+            pagination (bool): Enable pagination for the controller.
         """
         self._model = model
         self._name = model.__name__
         self._polymorph_on = self._get_polymorph_on()
         self._processors: list[ProcessorBase] = []
+
+        if pagination:
+            try:
+                from fastapi_pagination.ext.sqlalchemy import paginate
+            except ImportError:
+                raise ImportError("To use pagination, you must install `fastapi_pagination`.")
+
+        self.pagination_method = paginate if pagination else None
 
     def _get_polymorph_on(self) -> str | None:
         """
@@ -83,10 +93,10 @@ class ModelController:
         Returns:
             Optional[ORMModel]: The retrieved record, if found.
         """
-        return db.query(self._model).filter(*args).filter_by(**kwargs).first()
+        return db.query(self._model).where(*args).filter_by(**kwargs).first()
 
     def get_many(
-            self, db: Session, *args, skip: int = 0, limit: int | None = None, **kwargs
+            self, db: Session, filters: FiltersBase = None, *args, **kwargs
     ) -> Collection[ORMModel]:
         """
         Retrieves multiple records from the database.
@@ -95,21 +105,29 @@ class ModelController:
             db (Session): The database session.
             *args: Variable number of arguments. For example: filter
                 db.query(MyClass).filter(MyClass.name == 'some name', MyClass.id > 5)
-            skip (int, optional): Number of records to skip. Defaults to 0.
-            limit (int, optional): Maximum number of records to retrieve.
-                Defaults to 100.
             **kwargs: Variable number of keyword arguments. For example: filter_by
                 db.query(MyClass).filter_by(name='some name', id > 5)
 
         Returns:
             List[ORMModel]: List of retrieved records.
         """
-        query = db.query(self._model)
+        query = db.query(self._model).filter(*args).filter_by(**kwargs)
 
-        if limit is not None:
-            return query.filter(*args).filter_by(**kwargs).offset(skip).limit(limit).all()
-        else:
-            return query.filter(*args).filter_by(**kwargs).offset(skip).all()
+        # Dynamically apply filters from the filters class
+        if filters:
+            for field, value in filters.model_dump(exclude_unset=True, exclude_none=True).items():
+                if field.endswith('_lt'):
+                    query = query.filter(getattr(self._model, field[:-3]) < value)
+                elif field.endswith('_gt'):
+                    query = query.filter(getattr(self._model, field[:-3]) > value)
+                elif field.endswith('_like'):
+                    query = query.filter(getattr(self._model, field[:-5]).like(f"%{value}%"))
+                else:
+                    query = query.filter(getattr(self._model, field) == value)
+
+        if self.pagination_method:
+            return self.pagination_method(db, query)
+        return query.all()
 
     def create(self, db: Session, obj_create: CreateSchemaType) -> ORMModel:
         """
