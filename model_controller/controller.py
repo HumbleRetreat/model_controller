@@ -1,37 +1,50 @@
 from collections.abc import Collection
-from typing import List, Optional, Type, Union
+from contextlib import contextmanager
+from typing import Type, Union
 
 from sqlalchemy.orm import Session
 
 from model_controller.enums import OperationType
 from model_controller.exception import ControllerException
 from model_controller.filters import FiltersBase
-from model_controller.processor import ProcessorBase
+from model_controller.processors.base import ProcessorBase
 from model_controller.types import ORMModel, CreateSchemaType, UpdateSchemaType
 
 
 class ModelController:
     """Base interface for CRUD operations."""
 
-    def __init__(self, model: Type[ORMModel], pagination: bool = False) -> None:
+    def __init__(self, model: Type[ORMModel], paginate: bool = False) -> None:
         """Initialize the CRUD repository.
 
         Parameters:
             model (Type[ORMModel]): The ORM model to use for CRUD operations.
-            pagination (bool): Enable pagination for the controller.
+            paginate (bool): Enable pagination for the controller.
         """
         self._model = model
         self._name = model.__name__
         self._polymorph_on = self._get_polymorph_on()
         self._processors: list[ProcessorBase] = []
 
-        if pagination:
+        if paginate:
             try:
                 from fastapi_pagination.ext.sqlalchemy import paginate
             except ImportError:
                 raise ImportError("To use pagination, you must install `fastapi_pagination`.")
 
-        self.pagination_method = paginate if pagination else None
+        self.pagination_method = paginate if paginate else None
+        self.context: dict = {}
+
+    @contextmanager
+    def set_context(self, context: dict):
+        """
+        Context manager to set and reset the context.
+        """
+        self.context = context
+        try:
+            yield
+        finally:
+            self.context = {}
 
     def _get_polymorph_on(self) -> str | None:
         """
@@ -74,12 +87,20 @@ class ModelController:
     def register_processor(self, processor: ProcessorBase):
         self._processors.append(processor)
 
-    def notify_processors(self, operation: OperationType, model: Type[ORMModel],
-                          data: Union[CreateSchemaType, UpdateSchemaType]):
-        for processor in self._processors:
-            processor.process(operation, model, data)
+    def _notify_processors(self, operation: OperationType, model: Type[ORMModel],
+                           data: CreateSchemaType | UpdateSchemaType | None):
+        """
+        Notify all registered processors about the operation.
 
-    def get_one(self, db: Session, *args, **kwargs) -> Optional[ORMModel]:
+        Parameters:
+            operation (OperationType): The operation type.
+            model (Type[ORMModel]): The model class.
+            data (Union[CreateSchemaType, UpdateSchemaType, None]): The data for the operation.
+        """
+        for processor in self._processors:
+            processor.process(operation, model, data, self.context)
+
+    def get_one(self, db: Session, *args, **kwargs) -> ORMModel | None:
         """
         Retrieves one record from the database.
 
@@ -96,13 +117,14 @@ class ModelController:
         return db.query(self._model).where(*args).filter_by(**kwargs).first()
 
     def get_many(
-            self, db: Session, filters: FiltersBase = None, *args, **kwargs
+            self, db: Session, filters: FiltersBase | None = None, *args, **kwargs
     ) -> Collection[ORMModel]:
         """
         Retrieves multiple records from the database.
 
         Parameters:
             db (Session): The database session.
+            filters (FiltersBase): The filters to apply to the query.
             *args: Variable number of arguments. For example: filter
                 db.query(MyClass).filter(MyClass.name == 'some name', MyClass.id > 5)
             **kwargs: Variable number of keyword arguments. For example: filter_by
@@ -113,9 +135,11 @@ class ModelController:
         """
         query = db.query(self._model).filter(*args).filter_by(**kwargs)
 
+        filters_dict = filters.model_dump(exclude_unset=True, exclude_none=True)
+
         # Dynamically apply filters from the filters class
         if filters:
-            for field, value in filters.model_dump(exclude_unset=True, exclude_none=True).items():
+            for field, value in filters_dict.items():
                 if field.endswith('_lt'):
                     query = query.filter(getattr(self._model, field[:-3]) < value)
                 elif field.endswith('_gt'):
@@ -127,6 +151,9 @@ class ModelController:
 
         if self.pagination_method:
             return self.pagination_method(db, query)
+
+        self._notify_processors(OperationType.READ, self._model, filters_dict)
+
         return query.all()
 
     def create(self, db: Session, obj_create: CreateSchemaType) -> ORMModel:
@@ -151,7 +178,7 @@ class ModelController:
         db.add(db_obj)
         db.flush()
 
-        self.notify_processors(OperationType.CREATE, model_class, obj_create)
+        self._notify_processors(OperationType.CREATE, model_class, obj_create)
 
         return db_obj
 
@@ -183,7 +210,7 @@ class ModelController:
         db.add(db_obj)
         db.flush()
 
-        self.notify_processors(OperationType.UPDATE, type(db_obj), obj_update)
+        self._notify_processors(OperationType.UPDATE, type(db_obj), obj_update)
 
         return db_obj
 
@@ -202,6 +229,6 @@ class ModelController:
         db.delete(db_obj)
         db.flush()
 
-        self.notify_processors(OperationType.DELETE, type(db_obj), db_obj)
+        self._notify_processors(OperationType.DELETE, type(db_obj), db_obj)
 
         return True

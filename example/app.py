@@ -1,20 +1,24 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
 import sqlmodel
 from fastapi import FastAPI, Depends
 from fastapi_pagination import Page, add_pagination
+from pydantic import Field
+from pydantic.json_schema import SkipJsonSchema
 from sqlalchemy import create_engine
 
 from model import Hero
 from model_controller.controller import ModelController
-from model_controller.filters import create_filter_model
+from model_controller.filters import create_filter_model, FiltersBase
+from model_controller.processors.logging_processor import LoggingProcessor
 from schema import HeroOut
 
-app = FastAPI()
+app = FastAPI(title="Model Controller Example")
 add_pagination(app)
 
 users_controller = ModelController(Hero)
-paginated_users_controller = ModelController(Hero, pagination=True)
+users_controller.register_processor(LoggingProcessor())
+paginated_users_controller = ModelController(Hero, paginate=True)
 engine = create_engine("sqlite:///:memory:")
 sqlmodel.SQLModel.metadata.create_all(engine)
 session = sqlmodel.Session(engine)
@@ -25,14 +29,15 @@ session.add_all([hero1, hero2])
 
 HeroFilterParams = create_filter_model(Hero)
 
-# class HeroFilterParams(FiltersBase):
-#     """
-#     Parameters to filter Hero model.
-#     """
-#     name: Optional[str] = Field(None, description="Filter by name")
-#     age: Optional[int] = Field(None, description="Filter by exact age")
-#     age_lt: Optional[int] = Field(None, description="Filter by age less than this value")
-#     age_gt: Optional[int] = Field(None, description="Filter by age greater than this value")
+
+class HeroFilterParams2(FiltersBase):
+    """
+    Parameters to filter Hero model.
+    """
+    name: str | SkipJsonSchema[None] = Field(None, description="Filter by name")
+    age: Optional[int] = Field(None, description="Filter by exact age")
+    age_lt: Optional[int] = Field(None, description="Filter by age less than this value")
+    age_gt: Optional[int] = Field(None, description="Filter by age greater than this value")
 
 
 # req: GET /users
@@ -40,7 +45,8 @@ HeroFilterParams = create_filter_model(Hero)
 async def get_users(
         filter_params: Annotated[HeroFilterParams, Depends()],
 ):
-    return users_controller.get_many(session, filter_params)
+    with users_controller.set_context({"user_id": 12}):
+        return users_controller.get_many(session, filter_params)
 
 
 @app.get("/users/{id}", response_model=HeroOut)

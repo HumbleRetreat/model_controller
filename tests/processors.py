@@ -1,7 +1,7 @@
 from typing import Union, List, Tuple
 
 from model_controller.enums import OperationType
-from model_controller.processor import ProcessorBase
+from model_controller.processors.base import ProcessorBase
 from model_controller.types import ORMModel, CreateSchemaType, UpdateSchemaType
 
 
