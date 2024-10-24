@@ -10,5 +10,6 @@ class ProcessorForTesting(ProcessorBase):
         super().__init__()
         self.updates: List[Tuple[OperationType, ORMModel, Union[CreateSchemaType, UpdateSchemaType]]] = []
 
-    def process(self, operation: OperationType, model: ORMModel, data: CreateSchemaType | UpdateSchemaType):
-        self.updates.append([operation, model, data])
+    def process(self, operation: OperationType, model: ORMModel, data: CreateSchemaType | UpdateSchemaType,
+                context: dict):
+        self.updates.append([operation, model, data, context])

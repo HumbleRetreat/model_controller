@@ -8,7 +8,7 @@ from model_controller.types import ORMModel, MutationType
 class LoggingProcessor(ProcessorBase):
     def process(self, operation: OperationType, model: ORMModel, data: MutationType,
                 context: dict):
-        print(f"Operation: {operation.name}, Model: {model.__name__}, Data: {data}, Context: {context}")
+        self.logger.info(f"Operation: {operation.name}, Model: {model.__name__}, Data: {data}, Context: {context}")
 
     def __init__(self):
         super().__init__()

@@ -135,10 +135,9 @@ class ModelController:
         """
         query = db.query(self._model).filter(*args).filter_by(**kwargs)
 
-        filters_dict = filters.model_dump(exclude_unset=True, exclude_none=True)
-
         # Dynamically apply filters from the filters class
         if filters:
+            filters_dict = filters.model_dump(exclude_unset=True, exclude_none=True)
             for field, value in filters_dict.items():
                 if field.endswith('_lt'):
                     query = query.filter(getattr(self._model, field[:-3]) < value)
@@ -152,7 +151,7 @@ class ModelController:
         if self.pagination_method:
             return self.pagination_method(db, query)
 
-        self._notify_processors(OperationType.READ, self._model, filters_dict)
+        self._notify_processors(OperationType.READ, self._model, filters)
 
         return query.all()
 

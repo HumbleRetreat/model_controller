@@ -7,7 +7,7 @@ from tests.models import Base
 
 @pytest.fixture(scope="function")
 def db_engine():
-    return create_engine("sqlite+pysqlite:///:memory:", echo=True)
+    return create_engine("sqlite+pysqlite:///:memory:", echo=False)
 
 
 @pytest.fixture(scope="function")
