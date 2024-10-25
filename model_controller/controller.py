@@ -1,6 +1,6 @@
 from collections.abc import Collection
 from contextlib import contextmanager
-from typing import Type, Union
+from typing import Type, Union, Optional
 
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,7 @@ from model_controller.enums import OperationType
 from model_controller.exception import ControllerException
 from model_controller.filters import FiltersBase
 from model_controller.processors.base import ProcessorBase
-from model_controller.types import ORMModel, CreateSchemaType, UpdateSchemaType
+from model_controller.types import ORMModel, CreateSchemaType, UpdateSchemaType, MutationType
 
 
 class ModelController:
@@ -28,11 +28,13 @@ class ModelController:
 
         if paginate:
             try:
-                from fastapi_pagination.ext.sqlalchemy import paginate
+                from fastapi_pagination.ext.sqlalchemy import paginate as paginate_sqlalchemy
+                self.pagination_method = paginate_sqlalchemy
             except ImportError:
                 raise ImportError("To use pagination, you must install `fastapi_pagination`.")
+        else:
+            self.pagination_method = None
 
-        self.pagination_method = paginate if paginate else None
         self.context: dict = {}
 
     @contextmanager
@@ -88,7 +90,7 @@ class ModelController:
         self._processors.append(processor)
 
     def _notify_processors(self, operation: OperationType, model: Type[ORMModel],
-                           data: CreateSchemaType | UpdateSchemaType | None):
+                           data: Optional[MutationType]):
         """
         Notify all registered processors about the operation.
 
@@ -164,12 +166,11 @@ class ModelController:
         Parameters:
             db (Session): The database session.
             obj_create (CreateModelType): The data for creating the new record.
-            It's a pydantic BaseModel
 
         Returns:
             ORMModel: The newly created record.
         """
-        model_class = self._get_actual_model(obj_create)
+        model_class: Type[ORMModel] = self._get_actual_model(obj_create)
         obj_create_data = obj_create.model_dump(exclude_none=True, exclude_unset=True)
 
         db_obj = model_class(**obj_create_data)

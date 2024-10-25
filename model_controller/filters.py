@@ -1,15 +1,16 @@
-from typing import Type, Dict, Tuple, Optional
+from typing import Type, Dict, Tuple, Optional, Union
 
 from pydantic import BaseModel, Field, create_model
 from pydantic.json_schema import SkipJsonSchema
 from sqlalchemy import Integer, String
 from sqlalchemy.orm import DeclarativeMeta
 
-string_classes = [String, ]
+string_classes: list[Type[Union[String, 'AutoString']]] = [String]
+
 try:
     from sqlmodel import AutoString
 
-    string_classes.append(AutoString)
+    string_classes.append(AutoString)  # Now AutoString is compatible
 except ImportError:
     pass  # sqlmodel is not installed
 
@@ -32,8 +33,6 @@ def create_filter_model(model: Type[DeclarativeMeta]) -> Type[FiltersBase]:
 
     # Iterate over the model's columns to extract fields
     for column in model.__table__.columns:
-        column_type = type(column.type)
-
         # Dynamically add fields to the model filter
         if isinstance(column.type, Integer):
             # For integer fields (e.g., age), support filtering with lt, gt, eq
@@ -47,7 +46,7 @@ def create_filter_model(model: Type[DeclarativeMeta]) -> Type[FiltersBase]:
         elif isinstance(column.type, tuple(string_classes)):
             # For string fields (e.g., name), support exact match or partial match
             model_fields[column.name] = (
-            str | SkipJsonSchema[None], Field(None, description=f"Filter by {column.name}"))
+                str | SkipJsonSchema[None], Field(None, description=f"Filter by {column.name}"))
             model_fields[f"{column.name}_like"] = (
                 str | SkipJsonSchema[None], Field(None, description=f"Partial match for {column.name}"))
 
