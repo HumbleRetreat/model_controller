@@ -6,9 +6,9 @@ authors = ["Roland von Ohlen <roland@rvo-host.net>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
-sqlalchemy = "^2.0.36"
-pydantic = "^2.9.2"
+python = "^3.10"
+sqlalchemy = "^2.0.0"
+pydantic = "^2.0.0"
 pytest = "^8.3.3"
 
 
