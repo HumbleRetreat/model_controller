@@ -1,6 +1,6 @@
 from collections.abc import Collection
 from contextlib import contextmanager
-from typing import Type, Union, Optional
+from typing import Optional, Type
 
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,12 @@ from model_controller.enums import OperationType
 from model_controller.exception import ControllerException
 from model_controller.filters import FiltersBase
 from model_controller.processors.base import ProcessorBase
-from model_controller.types import ORMModel, CreateSchemaType, UpdateSchemaType, MutationType
+from model_controller.types import (
+    CreateSchemaType,
+    MutationType,
+    ORMModel,
+    UpdateSchemaType,
+)
 
 
 class ModelController:
@@ -28,7 +33,9 @@ class ModelController:
 
         if paginate:
             try:
-                from fastapi_pagination.ext.sqlalchemy import paginate as paginate_sqlalchemy
+                from fastapi_pagination.ext.sqlalchemy import (
+                    paginate as paginate_sqlalchemy,
+                )
                 self.pagination_method = paginate_sqlalchemy
             except ImportError:
                 raise ImportError("To use pagination, you must install `fastapi_pagination`.")
