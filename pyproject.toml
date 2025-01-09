@@ -1,28 +1,27 @@
-[tool.poetry]
+[project]
+authors = [
+    {name = "Roland von Ohlen", email = "roland@rvo-host.net"},
+]
+requires-python = "<4.0,>=3.10"
+dependencies = [
+    "sqlalchemy<3.0.0,>=2.0.0",
+    "pydantic<3.0.0,>=2.0.0",
+    "pytest<9.0.0,>=8.3.3",
+]
 name = "model-controller"
 version = "0.1.0"
 description = ""
-authors = ["Roland von Ohlen <roland@rvo-host.net>"]
 readme = "README.md"
 
-[tool.poetry.dependencies]
-python = "^3.10"
-sqlalchemy = "^2.0.0"
-pydantic = "^2.0.0"
-pytest = "^8.3.3"
-
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.3.3"
-pytest-cov = "^5.0.0"
-pytest-mock = "^3.14.0"
-mypy = "^1.12.1"
-mkdocs = "^1.6.1"
-mkdocstrings = {extras = ["python"], version = "^0.26.2"}
-mkdocs-material = "^9.5.42"
-sqlalchemy = "^2.0.36"
-sqlmodel = "^0.0.22"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[dependency-groups]
+dev = [
+    "pytest<9.0.0,>=8.3.3",
+    "pytest-cov<6.0.0,>=5.0.0",
+    "pytest-mock<4.0.0,>=3.14.0",
+    "mypy<2.0.0,>=1.12.1",
+    "mkdocs<2.0.0,>=1.6.1",
+    "mkdocstrings[python]<1.0.0,>=0.26.2",
+    "mkdocs-material<10.0.0,>=9.5.42",
+    "sqlalchemy<3.0.0,>=2.0.36",
+    "sqlmodel<1.0.0,>=0.0.22",
+]
