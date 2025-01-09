@@ -1,8 +1,8 @@
 from typing import Annotated, Optional
 
 import sqlmodel
-from fastapi import FastAPI, Depends
-from fastapi_pagination import Page, add_pagination
+from fastapi import FastAPI, Depends, Query
+from fastapi_pagination import LimitOffsetPage, add_pagination
 from pydantic import Field
 from pydantic.json_schema import SkipJsonSchema
 from sqlalchemy import create_engine
@@ -54,6 +54,9 @@ async def get_user(id: int):
     return users_controller.get_one(session, Hero.id == id)
 
 
-@app.get("/users-paginated", response_model=Page[HeroOut])
-async def get_users_paginated():
-    return paginated_users_controller.get_many(session)
+@app.get("/users-paginated", response_model=LimitOffsetPage[HeroOut])
+async def get_users_paginated(
+        order_by: Annotated[str, Query(..., alias="orderBy")] = None,
+):
+    print(order_by)
+    return paginated_users_controller.get_many(session, order_by=order_by)

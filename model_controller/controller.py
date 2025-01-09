@@ -1,6 +1,6 @@
 from collections.abc import Collection
 from contextlib import contextmanager
-from typing import Type, Union, Optional
+from typing import Optional, Type
 
 from sqlalchemy.orm import Session
 
@@ -8,7 +8,12 @@ from model_controller.enums import OperationType
 from model_controller.exception import ControllerException
 from model_controller.filters import FiltersBase
 from model_controller.processors.base import ProcessorBase
-from model_controller.types import ORMModel, CreateSchemaType, UpdateSchemaType, MutationType
+from model_controller.types import (
+    CreateSchemaType,
+    MutationType,
+    ORMModel,
+    UpdateSchemaType,
+)
 
 
 class ModelController:
@@ -28,10 +33,15 @@ class ModelController:
 
         if paginate:
             try:
-                from fastapi_pagination.ext.sqlalchemy import paginate as paginate_sqlalchemy
+                from fastapi_pagination.ext.sqlalchemy import (
+                    paginate as paginate_sqlalchemy,
+                )
+
                 self.pagination_method = paginate_sqlalchemy
             except ImportError:
-                raise ImportError("To use pagination, you must install `fastapi_pagination`.")
+                raise ImportError(
+                    "To use pagination, you must install `fastapi_pagination`."
+                )
         else:
             self.pagination_method = None
 
@@ -56,9 +66,9 @@ class ModelController:
         Returns:
             str | None: The polymorphic_on attribute of the model.
         """
-        mapper_args = getattr(self._model, '__mapper_args__', None)
+        mapper_args = getattr(self._model, "__mapper_args__", None)
         if mapper_args:
-            return mapper_args.get('polymorphic_on', None)
+            return mapper_args.get("polymorphic_on", None)
 
         return None
 
@@ -81,7 +91,10 @@ class ModelController:
 
         if self._polymorph_on and data_has_identity:
             for subclass in self._model.__subclasses__():
-                if subclass.__mapper_args__.get('polymorphic_identity') == data_has_identity:
+                if (
+                    subclass.__mapper_args__.get("polymorphic_identity")
+                    == data_has_identity
+                ):
                     return subclass
 
         raise ControllerException(f"Cannot resolve the actual model for {self._name}")
@@ -89,8 +102,12 @@ class ModelController:
     def register_processor(self, processor: ProcessorBase):
         self._processors.append(processor)
 
-    def _notify_processors(self, operation: OperationType, model: Type[ORMModel],
-                           data: Optional[MutationType]):
+    def _notify_processors(
+        self,
+        operation: OperationType,
+        model: Type[ORMModel],
+        data: Optional[MutationType],
+    ):
         """
         Notify all registered processors about the operation.
 
@@ -119,7 +136,12 @@ class ModelController:
         return db.query(self._model).where(*args).filter_by(**kwargs).first()
 
     def get_many(
-            self, db: Session, filters: FiltersBase | None = None, *args, **kwargs
+        self,
+        db: Session,
+        filters: FiltersBase | None = None,
+        order_by: Optional[str] = None,
+        *args,
+        **kwargs,
     ) -> Collection[ORMModel]:
         """
         Retrieves multiple records from the database.
@@ -127,6 +149,7 @@ class ModelController:
         Parameters:
             db (Session): The database session.
             filters (FiltersBase): The filters to apply to the query.
+            order_by (Optional[str]): The field to order the results by.
             *args: Variable number of arguments. For example: filter
                 db.query(MyClass).filter(MyClass.name == 'some name', MyClass.id > 5)
             **kwargs: Variable number of keyword arguments. For example: filter_by
@@ -141,14 +164,24 @@ class ModelController:
         if filters:
             filters_dict = filters.model_dump(exclude_unset=True, exclude_none=True)
             for field, value in filters_dict.items():
-                if field.endswith('_lt'):
+                if field.endswith("_lt"):
                     query = query.filter(getattr(self._model, field[:-3]) < value)
-                elif field.endswith('_gt'):
+                elif field.endswith("_gt"):
                     query = query.filter(getattr(self._model, field[:-3]) > value)
-                elif field.endswith('_like'):
-                    query = query.filter(getattr(self._model, field[:-5]).like(f"%{value}%"))
+                elif field.endswith("_like"):
+                    query = query.filter(
+                        getattr(self._model, field[:-5]).like(f"%{value}%")
+                    )
                 else:
                     query = query.filter(getattr(self._model, field) == value)
+
+        if order_by:
+            if order_by.startswith("-"):
+                model_attribute = getattr(self._model, order_by[1:])
+                query = query.order_by(model_attribute.desc())
+            else:
+                model_attribute = getattr(self._model, order_by)
+                query = query.order_by(model_attribute)
 
         if self.pagination_method:
             return self.pagination_method(db, query)
@@ -183,10 +216,10 @@ class ModelController:
         return db_obj
 
     def update_object(
-            self,
-            db: Session,
-            db_obj: ORMModel,
-            obj_update: UpdateSchemaType,
+        self,
+        db: Session,
+        db_obj: ORMModel,
+        obj_update: UpdateSchemaType,
     ) -> ORMModel:
         """
         Updates a record in the database.
@@ -200,9 +233,7 @@ class ModelController:
         Returns:
             ORMModel: The updated database object.
         """
-        obj_update_data = obj_update.model_dump(
-            exclude_unset=True
-        )
+        obj_update_data = obj_update.model_dump(exclude_unset=True)
 
         for field, value in obj_update_data.items():
             setattr(db_obj, field, value)
